@@ -26,7 +26,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: OpenShift Optional, Other
     console.openshift.io/disable-operand-delete: "true"
-    createdAt: "2024-05-29T16:28:50Z"
+    createdAt: "2024-06-15T15:39:14Z"
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
@@ -467,3 +467,15 @@ spec:
     name: Red Hat
     url: https://github.com/openshift/multiarch-tuning-operator
   version: 0.9.0
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    conversionCRDs:
+    - clusterpodplacementconfigs.multiarch.openshift.io
+    deploymentName: multiarch-tuning-operator-controller-manager
+    generateName: cclusterpodplacementconfigs.kb.io
+    sideEffects: None
+    targetPort: 9443
+    type: ConversionWebhook
+    webhookPath: /convert

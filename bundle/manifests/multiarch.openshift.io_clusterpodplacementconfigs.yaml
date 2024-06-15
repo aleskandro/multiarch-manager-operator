@@ -3,9 +3,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
+    service.beta.openshift.io/inject-cabundle: "true"
   creationTimestamp: null
   name: clusterpodplacementconfigs.multiarch.openshift.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: multiarch-tuning-operator-webhook-service
+          namespace: openshift-multiarch-tuning-operator
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: multiarch.openshift.io
   names:
     kind: ClusterPodPlacementConfig
