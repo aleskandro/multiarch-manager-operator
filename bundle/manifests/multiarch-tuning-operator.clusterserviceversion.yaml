@@ -5,7 +5,7 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "multiarch.openshift.io/v1alpha1",
+          "apiVersion": "multiarch.openshift.io/v1beta1",
           "kind": "ClusterPodPlacementConfig",
           "metadata": {
             "name": "cluster"
