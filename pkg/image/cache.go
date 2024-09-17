@@ -18,35 +18,48 @@ package image
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-//nolint:unused
 type cacheProxy struct {
 	registryInspector        IRegistryInspector
 	imageRefsArchitectureMap map[string]sets.Set[string]
 	mutex                    sync.Mutex
 }
 
-//nolint:unused
 func (c *cacheProxy) GetCompatibleArchitecturesSet(ctx context.Context, imageReference string, secrets [][]byte) (sets.Set[string], error) {
-	if c.imageRefsArchitectureMap[imageReference] != nil {
-		return c.imageRefsArchitectureMap[imageReference], nil
+	authJson, err := c.registryInspector.marshaledImagePullSecrets(secrets)
+	if err != nil {
+		return nil, err
+	}
+
+	if architectures, ok := c.imageRefsArchitectureMap[computeSHA256Hash(imageReference, authJson)]; ok {
+		return architectures, nil
 	}
 	architectures, err := c.registryInspector.GetCompatibleArchitecturesSet(ctx, imageReference, secrets)
 	if err != nil {
 		return nil, err
 	}
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.imageRefsArchitectureMap[imageReference] = architectures
+	c.imageRefsArchitectureMap[computeSHA256Hash(imageReference, authJson)] = architectures
 	return architectures, nil
 }
 
-//nolint:unused
-func newCacheProxy() ICache {
+func (c *cacheProxy) GetRegistryInspector() IRegistryInspector {
+	return c.registryInspector
+}
+
+// Problems
+//  1. misses a cache eviction policy
+//  2. it may need a few further fixes to avoid leaking metadata of images when the inspection
+//     happens with different pull secrets
+func newCacheProxy() *cacheProxy {
 	return &cacheProxy{
 		imageRefsArchitectureMap: map[string]sets.Set[string]{},
 		registryInspector:        newRegistryInspector(),
@@ -54,3 +67,8 @@ func newCacheProxy() ICache {
 }
 
 // TODO: eviction policy
+// return the value insted of the key
+func computeSHA256Hash(imageReference string, secrets []byte) string {
+	hash := sha256.Sum256(append([]byte(imageReference)[:], secrets[:]...))
+	return hex.EncodeToString(hash[:])
+}

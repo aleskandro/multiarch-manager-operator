@@ -33,7 +33,6 @@ import (
 	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 
-	"github.com/go-logr/logr"
 	"golang.org/x/sys/unix"
 
 	"github.com/openshift/multiarch-tuning-operator/pkg/systemconfig"
@@ -62,7 +61,7 @@ func (i *registryInspector) GetCompatibleArchitecturesSet(ctx context.Context, i
 	i.mutex.RLock()
 	globalPullSecret := i.globalPullSecret
 	i.mutex.RUnlock()
-	authFile, err := i.createAuthFile(log, append([][]byte{globalPullSecret}, secrets...)...)
+	authFile, err := i.createAuthFile(append([][]byte{globalPullSecret}, secrets...)...)
 	if err != nil {
 		log.Error(err, "Couldn't write auth file")
 		return nil, err
@@ -176,12 +175,28 @@ func (i *registryInspector) GetCompatibleArchitecturesSet(ctx context.Context, i
 	return supportedArchitectures, nil
 }
 
-func (i *registryInspector) createAuthFile(log logr.Logger, secrets ...[]byte) (*os.File, error) {
+func (i *registryInspector) createAuthFile(secrets ...[]byte) (*os.File, error) {
+	authJson, err := i.marshaledImagePullSecrets(secrets)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: constant-name-for-now is a placeholder. Do we need this parameter at all?
+	fd, err := writeMemFile("constant-name-for-now", authJson)
+	if err != nil {
+		return nil, err
+	}
+	// filepath to our newly created in-memory file descriptor
+	fp := fmt.Sprintf("/proc/self/fd/%d", fd)
+	return os.NewFile(uintptr(fd), fp), nil
+}
+
+func (i *registryInspector) marshaledImagePullSecrets(secrets [][]byte) ([]byte, error) {
+	log := ctrllog.Log.WithName("registryInspector")
+
 	// Create the auth file
 	authCfgContent := &authCfg{
 		Auths: make(map[string]authData),
 	}
-
 	for _, secret := range secrets {
 		if err := authCfgContent.unmarshallAuthsDataAndStore(secret); err != nil {
 			log.Error(err, "Error unmarshalling pull secrets")
@@ -193,14 +208,7 @@ func (i *registryInspector) createAuthFile(log logr.Logger, secrets ...[]byte) (
 		log.Error(err, "Error marshalling pull secrets")
 		return nil, err
 	}
-	// TODO: constant-name-for-now is a placeholder. Do we need this parameter at all?
-	fd, err := writeMemFile("constant-name-for-now", authJson)
-	if err != nil {
-		return nil, err
-	}
-	// filepath to our newly created in-memory file descriptor
-	fp := fmt.Sprintf("/proc/self/fd/%d", fd)
-	return os.NewFile(uintptr(fd), fp), nil
+	return authJson, nil
 }
 
 // writeMemFile creates an in memory file based on memfd_create
