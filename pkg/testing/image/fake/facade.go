@@ -25,7 +25,7 @@ func (i *Facade) GetCompatibleArchitecturesSet(ctx context.Context, imageReferen
 }
 
 func newImageFacade() *Facade {
-	inspectionCache := newRegistryInspector()
+	inspectionCache := newCacheProxy()
 	return &Facade{
 		inspectionCache: inspectionCache,
 	}

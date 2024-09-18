@@ -45,6 +45,44 @@ func SeedMockRegistry(ctx context.Context) (err error) {
 	return nil
 }
 
+// Not sure how to access the images in the registy
+// Need to be able to look up image to varify what arch it has/using
+func UpdateNewCustomImage(ctx context.Context, image MockImage) (err error) {
+	authFilePath := makeAuthFile()
+	manifestDigest, manifestJsonBytes := image.pullImage(ctx, authFilePath)
+	//update to add another arch
+	_, _, err = image.pushImage(ctx, authFilePath)
+	return err
+}
+
+// Not sure how to access the images in the registy
+// Need to be able to look up image to varify what arch it has/using
+func UpdateNewCustomImage(ctx context.Context, image MockImage) (err error) {
+	authFilePath := makeAuthFile()
+	manifestDigest, manifestJsonBytes := image.pullImage(ctx, authFilePath)
+	//update to add another arch
+	_, _, err = image.pushImage(ctx, authFilePath)
+	return err
+}
+
+func FindMockImageArch(imageName string) sets.Set[string] {
+	for _, image := range GetMockImages() {
+		if image.Name == imageName {
+			return image.Architectures
+		}
+	}
+	return nil
+}
+
+func FindMockImage(imageName string) MockImage {
+	for _, image := range GetMockImages() {
+		if image.Name == imageName {
+			return image
+		}
+	}
+	return MockImage{}
+}
+
 // GetMockImages returns a list of mock images. In particular, it generates a list of images for each
 // MediaType and available repository. For List types, it generates both a list of images with multiple
 // architectures and a list of images with a single architecture.
@@ -90,6 +128,12 @@ func GetMockImages() []MockImage {
 		MediaType:     imgspecv1.MediaTypeImageIndex,
 		Repository:    PublicRepo,
 		Name:          ComputeNameByMediaType(imgspecv1.MediaTypeImageIndex, "ppc64le-s390x"),
+		Tag:           "latest",
+	}, MockImage{
+		Architectures: sets.New[string](utils.ArchitectureArm64),
+		Repository:    PublicRepo,
+		Name:          ComputeNameByMediaType(imgspecv1.MediaTypeImageIndex, "custom-image-that-will-change-supported-architectures"),
+		MediaType:     imgspecv1.MediaTypeImageManifest,
 		Tag:           "latest",
 	})
 	return mockImages

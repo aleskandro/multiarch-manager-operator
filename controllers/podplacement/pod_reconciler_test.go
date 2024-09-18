@@ -3,6 +3,8 @@ package podplacement
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -79,7 +81,41 @@ var _ = Describe("Controllers/Podplacement/PodReconciler", func() {
 			})
 		})
 	})
+	When("Handling cache proxy", func() {
+		Context("with different image types", func() {
+			DescribeTable("handles correctly", func(imageType string, supportedArchitectures ...string) {
+				imageName := registry.ComputeNameByMediaType(imgspecv1.MediaTypeImageIndex, "custom-image-that-will-change-supported-architectures")
+				pod := NewPod().
+					WithContainersImages(imageName).
+					WithGenerateName("test-pod-").
+					WithNamespace("test-namespace").
+					Build()
+				err := k8sClient.Create(ctx, &pod)
+				Expect(err).NotTo(HaveOccurred(), "failed to create pod", err)
+				err = registry.UpdateNewCustomImage(ctx,
+					registry.MockImage{
+						Repository:    registry.PublicRepo,
+						Name:          imageName,
+						Architectures: sets.New[string](utils.ArchitectureArm64, utils.ArchitectureAmd64),
+						MediaType:     imgspecv1.MediaTypeImageManifest,
+						Tag:           "latest",
+					})
+				Expect(err).NotTo(HaveOccurred(), "failed push custom image to registry, err")
+				pod = NewPod().
+					WithContainersImages(imageName).
+					WithGenerateName("test-pod-").
+					WithNamespace("test-namespace").
+					Build()
+				Expect(err).NotTo(HaveOccurred(), "failed to create pod", err)
+				// does not work
+				Expect(registry.FindMockImageArch(pod.Spec.Containers[0].Image)).To(Equal(sets.New[string](utils.ArchitectureArm64, utils.ArchitectureAmd64)), "unexpected pod architecture")
 
+			},
+				Entry("OCI Index Images", imgspecv1.MediaTypeImageIndex, utils.ArchitectureAmd64, utils.ArchitectureArm64),
+				Entry("Docker images", imgspecv1.MediaTypeImageManifest, utils.ArchitecturePpc64le),
+			)
+		})
+	})
 	When("Handling Multi-container Pods", func() {
 		Context("with different image types and different auth credentials sources", func() {
 			It("handles node affinity as the intersection of the compatible architectures of each multi-arch image", func() {
