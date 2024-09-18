@@ -91,12 +91,6 @@ func GetMockImages() []MockImage {
 		Repository:    PublicRepo,
 		Name:          ComputeNameByMediaType(imgspecv1.MediaTypeImageIndex, "ppc64le-s390x"),
 		Tag:           "latest",
-	}, MockImage{
-		Architectures: sets.New[string](utils.ArchitectureArm64),
-		Repository:    PublicRepo,
-		Name:          ComputeNameByMediaType(imgspecv1.MediaTypeImageIndex, "custom-image-that-will-change-supported-architectures"),
-		MediaType:     imgspecv1.MediaTypeImageManifest,
-		Tag:           "latest",
 	})
 	return mockImages
 }
