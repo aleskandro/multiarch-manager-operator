@@ -212,52 +212,6 @@ func (i *MockImage) pushImage(ctx context.Context, authFile string) (length int6
 	return length, manifestDigest, nil
 }
 
-// pullImage retrieves the image from the registry.
-func (i *MockImage) pullImage(ctx context.Context, authFile string) (manifestDigest *digest.Digest, manifestJsonBytes []byte) {
-	src, err := i.getSource(ctx, authFile)
-	if err != nil {
-		log.Error(err, "Error creating the image source")
-		return nil, nil
-	}
-	defer src.Close()
-
-	// Retrieve and process the image manifest
-	switch i.MediaType {
-	case imgspecv1.MediaTypeImageManifest, manifest.DockerV2Schema2MediaType:
-		manifestDigest, manifestJsonBytes, err = i.retrieveSingleArchImage(ctx, &src)
-		if err != nil {
-			return nil, nil
-		}
-	case manifest.DockerV2ListMediaType, imgspecv1.MediaTypeImageIndex:
-		// Handle manifest list: Retrieve and process each manifest within the list
-		manifestDigest, manifestJsonBytes, err = i.retrieveManifestList(ctx, &src)
-		if err != nil {
-			return nil, nil
-		}
-	default:
-		return nil, nil
-	}
-
-	return manifestDigest, manifestJsonBytes
-}
-
-// getSource simulates retrieving an image source from a registry.
-func (i *MockImage) getSource(ctx context.Context, authFile string) (types.ImageSource, error) {
-	// Implement logic to get the image source.
-	// This is just a placeholder.
-	return nil, nil
-}
-
-// retrieveSingleArchImage handles pulling a single architecture image.
-func (i *MockImage) retrieveSingleArchImage(ctx context.Context, src *types.ImageSource) (digest.Digest, []byte, error) {
-	// Implement  logic to retrieve and process a single architecture image.
-	// This is just a placeholder.
-	return digest.Digest{}, nil, nil
-}
-
-// retrieveManifestList handles pulling an image from a manifest list.
-func (i *MockImage) retrieveManifestList(ctx context.Context, src *types.ImageSource) (digest.Digest, []byte, error) {
-	// Implement logic to retrieve and process a manifest list.
-	// This is just a placeholder.
-	return digest.Digest{}, nil, nil
+func (i *MockImage) Equals(other *MockImage) bool {
+	return i.GetUrl() == other.GetUrl()
 }
