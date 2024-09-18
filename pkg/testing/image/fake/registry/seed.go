@@ -101,6 +101,22 @@ func GetMockImages() []MockImage {
 	return mockImages
 }
 
+func PushMockImage(ctx context.Context, newImage *MockImage) error {
+	authFilePath := makeAuthFile()
+	_, _, err := newImage.pushImage(ctx, authFilePath)
+	if err != nil {
+		return err
+	}
+	for i, image := range GetMockImages() {
+		if image.Equals(newImage) {
+			mockImages = append(mockImages[:i], mockImages[i+1:]...)
+			break
+		}
+	}
+	mockImages = append(mockImages, *newImage)
+	return nil
+}
+
 // ComputeNameByMediaType returns the name of the image given the media type.
 // The name of the image is given by the media type, replacing the "." with "-" and
 // removing the "+...." suffix and "application/" prefix.
