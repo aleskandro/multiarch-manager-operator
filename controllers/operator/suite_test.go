@@ -73,7 +73,7 @@ var (
 
 func TestOperator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Operator Integration Suite", Label("integration", "operator"))
+	RunSpecs(t, "Operator Integration Suite", Label("integration", "operator", "operator-integration"))
 }
 
 var _ = BeforeAll

@@ -75,7 +75,7 @@ var (
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controllers Integration Suite", Label("integration"))
+	RunSpecs(t, "Controllers Integration Suite", Label("integration", "podplacement", "podplacement-integration"))
 }
 
 var _ = BeforeAll
