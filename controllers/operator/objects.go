@@ -114,14 +114,14 @@ func buildService(name string) *corev1.Service {
 
 func buildWebhookDeployment(clusterPodPlacementConfig *v1beta1.ClusterPodPlacementConfig) *appsv1.Deployment {
 	return buildDeployment(clusterPodPlacementConfig, utils.PodPlacementWebhookName, 3, utils.PodPlacementWebhookName, "",
-		"--enable-ppc-webhook",
+		"--enable-ppc-webhook", "--enable-cppc-informer",
 	)
 
 }
 
 func buildControllerDeployment(clusterPodPlacementConfig *v1beta1.ClusterPodPlacementConfig) *appsv1.Deployment {
 	d := buildDeployment(clusterPodPlacementConfig, utils.PodPlacementControllerName, 2, utils.PodPlacementControllerName,
-		utils.PodPlacementFinalizerName, "--leader-elect", "--enable-ppc-controllers", "--enable-ppc-informer",
+		utils.PodPlacementFinalizerName, "--leader-elect", "--enable-ppc-controllers", "--enable-cppc-informer",
 	)
 	d.Spec.Template.Spec.Volumes = append(d.Spec.Template.Spec.Volumes,
 		corev1.Volume{
