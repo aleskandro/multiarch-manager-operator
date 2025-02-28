@@ -383,7 +383,7 @@ var _ = Describe("The Pod Placement Operand", func() {
 			By("The pod should be running and not gated")
 			Eventually(framework.VerifyPodsAreRunning(ctx, client, ns, "app", "test"), e2e.WaitShort).Should(Succeed())
 			By("The pod should not have preferred affinities from the ClusterPodPlacementConfig")
-			Eventually(framework.VerifyPodPreferredNodeAffinity(ctx, client, ns, "app", "test", nil), e2e.WaitShort).ShouldNot(Succeed())
+			Eventually(framework.VerifyPodPreferredNodeAffinity(ctx, client, ns, "app", "test", nil), e2e.WaitShort).Should(Succeed())
 		})
 	})
 	Context("When a statefulset is deployed with single vs multi container images", func() {
@@ -603,7 +603,7 @@ var _ = Describe("The Pod Placement Operand", func() {
 			Eventually(framework.VerifyPodLabels(ctx, client, ns, "app", "test", e2e.Present, schedulingGateNotSetLabel), e2e.WaitShort).Should(Succeed())
 			By("The pod should only have metadata.name provided by the DaemonSet. No node affinity is added by the controller.")
 			Eventually(framework.VerifyDaemonSetPodNodeAffinity(ctx, client, ns, "app", "test", nil), e2e.WaitShort).Should(Succeed())
-			// TODO[tori] Add logic to verify the DaemonSetPodPreferredNodeAffinity is not set either.
+			Eventually(framework.VerifyDaemonSetPreferredPodNodeAffinity(ctx, client, ns, "app", "test", nil), e2e.WaitShort).Should(Succeed())
 		})
 		It("should set the node affinity on Job owning pod", func() {
 			var err error
@@ -670,7 +670,7 @@ var _ = Describe("The Pod Placement Operand", func() {
 				utils.NodeAffinityLabel, utils.NodeAffinityLabelValueSet,
 			), e2e.WaitShort).Should(Succeed())
 			By("The pod should have the preferred affinities set in the ClusterPodPlacementConfig")
-			Eventually(framework.VerifyPodPreferredNodeAffinity(ctx, client, ns, "app", "test",
+			Eventually(framework.VerifyPodPreferredNodeAffinity(ctx, client, ns, "openshift.io/build.name", "test-build",
 				defaultExpectedAffinityTerms()), e2e.WaitShort).Should(Succeed())
 		})
 		It("should set the node affinity on DeploymentConfig owning pod", func() {
@@ -1050,7 +1050,7 @@ var _ = Describe("The Pod Placement Operand", func() {
 			By("The pod should not get node affinity of arch info because registry is in blocked list.")
 			Eventually(framework.VerifyPodNodeAffinity(ctx, client, ns, "app", "test-block"), e2e.WaitShort).Should(Succeed())
 			By("The pod should have the preferred affinities set in the ClusterPodPlacementConfig")
-			Eventually(framework.VerifyPodPreferredNodeAffinity(ctx, client, ns, "app", "test",
+			Eventually(framework.VerifyPodPreferredNodeAffinity(ctx, client, ns, "app", "test-block",
 				defaultExpectedAffinityTerms()), e2e.WaitShort).Should(Succeed())
 		})
 	})
