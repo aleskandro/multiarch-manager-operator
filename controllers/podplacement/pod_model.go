@@ -101,8 +101,9 @@ func (pod *Pod) RemoveSchedulingGate() {
 // Then, it computes the intersection of the architectures supported by the images used by the pod via pod.getArchitecturePredicate.
 // Finally, it initializes the nodeAffinity for the pod and set it to the computed requirement via the pod.setArchNodeAffinity method.
 func (pod *Pod) SetNodeAffinityArchRequirement(pullSecretDataList [][]byte) (bool, error) {
-	if pod.isNodeSelectorConfiguredForArchitecture() {
-		return false, fmt.Errorf("required affinnode selector already configured for architecture...skipping")
+	if pod.isRequiredAffinityConfiguredForArchitecture() {
+		pod.publishIgnorePod()
+		return false, nil
 	}
 	requirement, err := pod.getArchitecturePredicate(pullSecretDataList)
 	if err != nil {
@@ -170,9 +171,16 @@ func (pod *Pod) setRequiredArchNodeAffinity(requirement corev1.NodeSelectorRequi
 		ArchitecturePredicateSetupMsg+fmt.Sprintf("{%s}", strings.Join(requirement.Values, ", ")))
 }
 
-// SetPreferredArchNodeAffinity sets the node affinity for the pod to the given requirement based on the rules in
-// the sig-scheduling's KEP-3838: https://github.com/kubernetes/enhancements/tree/master/keps/sig-scheduling/3838-pod-mutable-scheduling-directives.
+// SetPreferredArchNodeAffinity sets the node affinity for the pod to the given preference
 func (pod *Pod) SetPreferredArchNodeAffinity(cppc *v1beta1.ClusterPodPlacementConfig) {
+	// Prevent overriding of user-provided kubernetes.io/arch preferred affinities
+	if pod.isPreferredAffinityConfiguredForArchitecture() {
+		pod.ensureLabel(utils.PreferredNodeAffinityLabel, utils.LabelValueNotSet)
+		pod.publishEvent(corev1.EventTypeNormal, ArchitectureAwareNodeAffinitySet,
+			ArchitecturePreferredPredicateSkippedMsg)
+		return
+	}
+
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &corev1.Affinity{}
 	}
@@ -183,14 +191,6 @@ func (pod *Pod) SetPreferredArchNodeAffinity(cppc *v1beta1.ClusterPodPlacementCo
 
 	if pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution == nil {
 		pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = []corev1.PreferredSchedulingTerm{}
-	}
-
-	// Prevent overriding of predefined kubernetes.io/arch
-	if pod.isPreferredAffinityConfiguredForArchitecture() {
-		pod.ensureLabel(utils.PreferredNodeAffinityLabel, utils.LabelValueNotSet)
-		pod.publishEvent(corev1.EventTypeNormal, ArchitectureAwareNodeAffinitySet,
-			ArchitecturePreferredPredicateSkippedMsg)
-		return
 	}
 
 	for _, nodeAffinityScoringPlatformTerm := range cppc.Spec.Plugins.NodeAffinityScoring.Platforms {
@@ -389,8 +389,8 @@ func (pod *Pod) hasControlPlaneNodeSelector() bool {
 func (pod *Pod) shouldIgnorePod(cppc *v1beta1.ClusterPodPlacementConfig) bool {
 	return utils.Namespace() == pod.Namespace || strings.HasPrefix(pod.Namespace, "kube-") ||
 		pod.Spec.NodeName != "" || pod.hasControlPlaneNodeSelector() || pod.isFromDaemonSet() ||
-		pod.isRequiredAffinityConfiguredForArchitecture() && (pod.isPreferredAffinityConfiguredForArchitecture() ||
-			cppc.Spec.Plugins == nil || !cppc.Spec.Plugins.NodeAffinityScoring.IsEnabled())
+		pod.isRequiredAffinityConfiguredForArchitecture() && (cppc.Spec.Plugins == nil ||
+			!cppc.Spec.Plugins.NodeAffinityScoring.IsEnabled() || pod.isPreferredAffinityConfiguredForArchitecture())
 }
 
 // ensureSchedulingGate ensures that the pod has the scheduling gate utils.SchedulingGateName.
@@ -448,14 +448,8 @@ func (pod *Pod) isRequiredAffinityConfiguredForArchitecture() bool {
 
 // isNodeSelectorConfiguredForArchitecture returns true if the pod has already a nodeSelector for the architecture label
 func (pod *Pod) isNodeSelectorConfiguredForArchitecture() bool {
-	// if the pod has the nodeSelector field set for the kubernetes.io/arch label, we ignore it.
-	// in fact, the nodeSelector field is ANDed with the nodeAffinity field, and we want to give the user the main control, if they
-	// manually set a predicate for the kubernetes.io/arch label.
-	// The same behavior is implemented below within each
-	// nodeSelectorTerm's MatchExpressions field.
 	for key := range pod.Spec.NodeSelector {
 		if key == utils.ArchLabel {
-			pod.publishIgnorePod()
 			return true
 		}
 	}
