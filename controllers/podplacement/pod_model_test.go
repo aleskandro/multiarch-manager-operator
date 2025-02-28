@@ -1158,7 +1158,7 @@ func TestIsNodeSelectorConfiguredForArchitecture(t *testing.T) {
 				},
 			}
 
-			result := pod.isNodeSelectorConfiguredForArchitecture()
+			result := pod.isRequiredAffinityConfiguredForArchitecture()
 			if result != test.expected {
 				t.Errorf("expected %v, got %v", test.expected, result)
 			}

@@ -101,6 +101,9 @@ func (pod *Pod) RemoveSchedulingGate() {
 // Then, it computes the intersection of the architectures supported by the images used by the pod via pod.getArchitecturePredicate.
 // Finally, it initializes the nodeAffinity for the pod and set it to the computed requirement via the pod.setArchNodeAffinity method.
 func (pod *Pod) SetNodeAffinityArchRequirement(pullSecretDataList [][]byte) (bool, error) {
+	if pod.isNodeSelectorConfiguredForArchitecture() {
+		return false, fmt.Errorf("required affinnode selector already configured for architecture...skipping")
+	}
 	requirement, err := pod.getArchitecturePredicate(pullSecretDataList)
 	if err != nil {
 		return false, err
@@ -386,7 +389,7 @@ func (pod *Pod) hasControlPlaneNodeSelector() bool {
 func (pod *Pod) shouldIgnorePod(cppc *v1beta1.ClusterPodPlacementConfig) bool {
 	return utils.Namespace() == pod.Namespace || strings.HasPrefix(pod.Namespace, "kube-") ||
 		pod.Spec.NodeName != "" || pod.hasControlPlaneNodeSelector() || pod.isFromDaemonSet() ||
-		pod.isNodeSelectorConfiguredForArchitecture() && (pod.isPreferredAffinityConfiguredForArchitecture() ||
+		pod.isRequiredAffinityConfiguredForArchitecture() && (pod.isPreferredAffinityConfiguredForArchitecture() ||
 			cppc.Spec.Plugins == nil || !cppc.Spec.Plugins.NodeAffinityScoring.IsEnabled())
 }
 
@@ -405,20 +408,13 @@ func (pod *Pod) ensureSchedulingGate() {
 	pod.Spec.SchedulingGates = append(pod.Spec.SchedulingGates, corev1.PodSchedulingGate{Name: utils.SchedulingGateName})
 }
 
-// isNodeSelectorConfiguredForArchitecture returns true if the pod has already a nodeSelector for the architecture label
+// isRequiredAffinityConfiguredForArchitecture returns true if the pod has already a nodeSelector for the architecture label
 // or if all the nodeSelectorTerms in the nodeAffinity field have a matchExpression for the architecture label.
-func (pod *Pod) isNodeSelectorConfiguredForArchitecture() bool {
-	// if the pod has the nodeSelector field set for the kubernetes.io/arch label, we ignore it.
-	// in fact, the nodeSelector field is ANDed with the nodeAffinity field, and we want to give the user the main control, if they
-	// manually set a predicate for the kubernetes.io/arch label.
-	// The same behavior is implemented below within each
-	// nodeSelectorTerm's MatchExpressions field.
-	for key := range pod.Spec.NodeSelector {
-		if key == utils.ArchLabel {
-			pod.publishIgnorePod()
-			return true
-		}
+func (pod *Pod) isRequiredAffinityConfiguredForArchitecture() bool {
+	if pod.isNodeSelectorConfiguredForArchitecture() {
+		return true
 	}
+
 	// Check if Affinity, NodeAffinity, or RequiredDuringSchedulingIgnoredDuringExecution is nil
 	// If any of these are nil, assume there are no specific node selector terms to check, so return true.
 	if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil || pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
@@ -448,6 +444,22 @@ func (pod *Pod) isNodeSelectorConfiguredForArchitecture() bool {
 
 	// If all NodeSelectorTerms contain the architecture label, return true
 	return true
+}
+
+// isNodeSelectorConfiguredForArchitecture returns true if the pod has already a nodeSelector for the architecture label
+func (pod *Pod) isNodeSelectorConfiguredForArchitecture() bool {
+	// if the pod has the nodeSelector field set for the kubernetes.io/arch label, we ignore it.
+	// in fact, the nodeSelector field is ANDed with the nodeAffinity field, and we want to give the user the main control, if they
+	// manually set a predicate for the kubernetes.io/arch label.
+	// The same behavior is implemented below within each
+	// nodeSelectorTerm's MatchExpressions field.
+	for key := range pod.Spec.NodeSelector {
+		if key == utils.ArchLabel {
+			pod.publishIgnorePod()
+			return true
+		}
+	}
+	return false
 }
 
 // isPodFromDaemonSet returns true if the pod is from a daemonSet.
